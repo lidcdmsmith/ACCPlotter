@@ -101,15 +101,27 @@ namespace ACCPlotter
                         PlotSettings? templatePlotSettings = PlotSettingsExtract(cadTemplateFilePath);
                         if (templatePlotSettings is null) return;
 
+                        // get plotSettings Dictionary for target drawing:
+                        DBDictionary plotSettingsDict = (DBDictionary)(transaction.GetObject(database.PlotSettingsDictionaryId, OpenMode.ForWrite));
+
                         // iterate through layouts and apply plot settings from template
                         foreach (DBDictionaryEntry layoutDictEntry in layoutDict)
                         {
                             Layout layout = (Layout)(transaction.GetObject(layoutDictEntry.Value, OpenMode.ForWrite));
-
                             if (layout.ModelType || layout is null) 
                                 continue;
 
                             ed.WriteMessage($"\nApplying plot settings to {Path.GetFileName(cadFilePath)} - {layout.LayoutName}");
+
+                            // Create a new page setup:
+                            string pageSetupName = $"ACCPlotter_{layout.LayoutName}";
+                            if (!plotSettingsDict.Contains(pageSetupName))
+                            {
+                                PlotSettings newPageSetup = new PlotSettings(layout.ModelType);
+                            }
+                            // Set new page setup name as page setup name from template plot settings
+                            // Set newly created page setup as current layout page setup
+                            // Then apply plot settings to the new current layout page setup
 
                             PlotSettingsApply(layout, templatePlotSettings);
 
@@ -122,7 +134,6 @@ namespace ACCPlotter
                     }
                     // save dataase after committing transaction
                     database.SaveAs(cadFilePath, DwgVersion.Current);
-                    // database.Dispose(); automatically called by "using" statement
                 }
             }
 
