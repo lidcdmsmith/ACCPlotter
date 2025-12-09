@@ -1,0 +1,24 @@
+01 General (G)
+02 Civil (C)
+03 Architectural (A)
+04 Structural (S)
+05 Process Mechanical
+06 HVAC (H)
+07 Plumbing (P)
+08 Fire Protection (F)
+09 Electrical (E)
+10 Automation (I)
+11 Plant3D
+12 Survey
+01 Gen
+02 Civil
+03 Arch
+04 Struc
+05 PMech
+06 HVAC
+07 PLBG
+08 FP
+09 Elec
+10 Autom
+11 P3D
+12 Survey
