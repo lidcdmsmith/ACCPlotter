@@ -14,23 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Remove="Resources\dwgFolderScanList.txt" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Page Remove="ACCPlotter_TreeViewWindow.xaml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\dwgFolderScanList.txt" />
   </ItemGroup>
 
 	<ItemGroup>
 		<Resource Include="Resources\icon1.ico" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Resource Include="Resources\icon_about.ico" />
 	</ItemGroup>
 
   <ItemGroup>
