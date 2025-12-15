@@ -79,7 +79,7 @@ namespace CDMSPlotting
 
                         PlotSettingsValidator psv = PlotSettingsValidator.Current;
 
-                        PlotSettings? templatePlotSettings = PlotSettingsExtract(cadTemplateFilePath);
+                        // PlotSettings? templatePlotSettings = PlotSettingsExtract(cadTemplateFilePath);
 
                         if (templatePlotSettings is null) return;
 
@@ -100,7 +100,7 @@ namespace CDMSPlotting
 
                             string pageSetupName = $"PlotTemplate_{layout.LayoutName}";
                             
-                            if (plotSettingsDict.Contains(pageSetupName))
+                            if (plotSettingsDict.Contains(templatePlotSettings.PlotSettingsName))
                             {
                                 ObjectId existingPageSetupId = plotSettingsDict.GetAt(pageSetupName);
 
@@ -112,7 +112,7 @@ namespace CDMSPlotting
                             {
                                 newPageSetup.CopyFrom(templatePlotSettings);
 
-                                string plotDeviceName = templatePlotSettings.PlotConfigurationName;
+                                string plotDeviceName = templatePlotSettings.PlotConfigurationName; // accesses pc3 file name
 
                                 string mediaName = templatePlotSettings.CanonicalMediaName;
 
@@ -145,8 +145,6 @@ namespace CDMSPlotting
         /// <summary>
         /// Reads a DWG file into the provided Database object with error handling.
         /// </summary>
-        /// <param name="database"></param>
-        /// <param name="cadFilePath"></param>
         private static void DatabaseReadDwgFile(Database database, string cadFilePath)
         {
             try
@@ -174,7 +172,6 @@ namespace CDMSPlotting
         /// <summary>
         /// Gets the project folder path from a folder browser dialog.
         /// </summary>
-        /// <returns></returns>
         public static string? GetProjectFolderPath()
         {
             string? projectFolderPath = null;
@@ -197,8 +194,6 @@ namespace CDMSPlotting
         /// (NOT USED) Gets a list of folder names to scan for DWG files from a specified scan list file.
         /// FolderScanList currently hard coded in PlotPdfsTemplate().
         /// </summary>
-        /// <param name="scanListFilePath"></param>
-        /// <returns></returns>
         private static List<string> GetDwgFolderScanList(string scanListFilePath)
         {
             List<string> scanList = new List<string>();
@@ -229,9 +224,6 @@ namespace CDMSPlotting
         /// <summary>
         ///  Gets a list of DWG CAD file paths from specified project folder and scan list.
         /// </summary>
-        /// <param name="projectFolderPath"></param>
-        /// <param name="dwgFolderScanList"></param>
-        /// <returns></returns>
         private static List<string> GetDwgCadFilePathList(string projectFolderPath, List<string> dwgFolderScanList)
         {
             // Initialize list to hold CAD file paths
@@ -259,8 +251,6 @@ namespace CDMSPlotting
         /// <summary>
         /// Gets the DWG CAD template file path from an open file dialog.
         /// </summary>
-        /// <param name="filter"></param>
-        /// <returns></returns>
         private static string? GetDwgCadFileTemplatePath(string filter)
         {
             using (var dialog = new System.Windows.Forms.OpenFileDialog())
@@ -277,14 +267,33 @@ namespace CDMSPlotting
         /// <summary>
         /// Extracts the <see cref="PlotSettings"/> from the first non-model layout in the specified CAD template file.
         /// </summary>
-        /// <remarks>This method assumes that the first non-model layout encountered in the CAD template
-        /// file is the desired layout. The extracted <see cref="PlotSettings"/> includes properties such as the PC3
-        /// file, media/paper size, CTB/STB file,  plot area, scale, offset and centering, rotation, quality, and output
-        /// destination (file or device).</remarks>
-        /// <param name="cadTemplateFilePath">The file path to the CAD template file. This must be a valid path to a DWG file.</param>
-        /// <returns>A <see cref="PlotSettings"/> object cloned from the first non-model layout in the specified file,  or <see
-        /// langword="null"/> if no non-model layouts are found.</returns>
-        private static PlotSettings? PlotSettingsExtract(string cadTemplateFilePath)
+        private static PlotSettings? PlotSettingExtract(string cadTemplateFilePath)
+        {
+            // create new cad database:
+            using (Database templateDatabase = new Database(false, true))
+            {
+                DatabaseReadDwgFile(templateDatabase, cadTemplateFilePath);
+                using (Transaction transaction = templateDatabase.TransactionManager.StartTransaction())
+                {
+                    DBDictionary layoutDict = (DBDictionary)(transaction.GetObject(templateDatabase.LayoutDictionaryId, OpenMode.ForRead));
+                    foreach (DBDictionaryEntry layoutDictEntry in layoutDict)
+                    {
+                        Layout layout = (Layout)(transaction.GetObject(layoutDictEntry.Value, OpenMode.ForRead));
+                        if (layout.ModelType || layout is null)
+                            continue;
+
+                        PlotSettings plotSettings = layout; // Layout inherits from PlotSettings
+                        return (PlotSettings)layout.Clone();
+                    }
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Extracts the <see cref="PlotSettings"/> from the first non-model layout in the specified CAD template file.
+        /// </summary>
+        private static PlotSettings? PplotSettingsExtract(string cadTemplateFilePath)
         {
             // create new cad database:
             using (Database templateDatabase = new Database(false, true))
@@ -310,8 +319,6 @@ namespace CDMSPlotting
         /// <summary>
         /// (NOT USED) Applies the extracted plot settings to the target layout.
         /// </summary>
-        /// <param name="targetLayout"></param>
-        /// <param name="sourceSettings"></param>
         private static void PlotSettingsApply(Layout targetLayout, PlotSettings sourceSettings)
         {
             PlotSettingsValidator psv = PlotSettingsValidator.Current;
@@ -324,8 +331,6 @@ namespace CDMSPlotting
         /// <summary>
         /// Gets a log row of plot settings from the specified layout.
         /// </summary>
-        /// <param name="cadFilePath"></param>
-        /// <param name="layout"></param>
         /// <returns></returns>
         private static List<string> GetPlotSettingsLog(string cadFilePath, Layout layout)
         {
@@ -383,12 +388,6 @@ namespace CDMSPlotting
         /// <summary>
         /// Writes the provided log data to a CSV file in the user's temporary folder.
         /// </summary>
-        /// <remarks>The CSV file is created in the user's temporary folder, under the
-        /// "AppData\Local\Temp" directory,  with a filename in the format "ACCPlotter_Log_yyyy-MM-dd_H-mm-ss.csv",
-        /// where the timestamp reflects  the current date and time. Each row in the CSV file corresponds to an entry in
-        /// the <paramref name="logRows"/> parameter, and  values are enclosed in double quotes to ensure proper
-        /// formatting.</remarks>
-        /// <param name="logRows">A list of rows, where each row is a list of strings representing log data to be written to the CSV file.</param>
         private static void WriteLogToCsv(List<List<string>> logRows)
         {
             string tempFolder = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -411,39 +410,6 @@ namespace CDMSPlotting
             }
         }
 
-        #endregion
-
-
-        [CommandMethod("BLANKTEMPLATE")]
-        public void BlankTemplate()
-        {
-            #region Setup 1
-            Editor ed = AcadApp.DocumentManager.MdiActiveDocument.Editor;
-            ed.WriteMessage("\nThis is a placeholder command for future implementation.");
-            #endregion
-
-            #region Setup 2
-            #endregion
-
-            #region Start Transaction
-            #endregion
-
-                #region Code 1
-                // Future implementation goes here
-                #endregion
-
-                #region Code 2
-                // Future implementation goes here
-                #endregion
-
-            #region Commit Transaction
-            #endregion
-
-            #region Completion
-            // Future completion steps go here
-            #endregion
-        }
-        #region BlankTemplate Private Methods
         #endregion
     }
 }
